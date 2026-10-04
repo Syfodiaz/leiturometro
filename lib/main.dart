@@ -1443,7 +1443,7 @@ class ResponsibleView extends StatelessWidget {
                     title: const Text('Relatório mensal'),
                     content: Column(mainAxisSize: MainAxisSize.min, children: [
                       DropdownButtonFormField<int>(
-                          initialValue: month,
+                          value: month,
                           decoration: const InputDecoration(labelText: 'Mês'),
                           items: List.generate(
                               12,
@@ -1453,7 +1453,7 @@ class ResponsibleView extends StatelessWidget {
                                       .format(DateTime(2024, i + 1))))),
                           onChanged: (v) => set(() => month = v ?? month)),
                       DropdownButtonFormField<String>(
-                          initialValue: selected,
+                          value: selected,
                           decoration:
                               const InputDecoration(labelText: 'Criança'),
                           items: ['Todas', ...store.children]
@@ -1579,3 +1579,4 @@ class ResponsibleView extends StatelessWidget {
                 ]));
   }
 }
+fix: usa value em vez de initialValue para compatibilidade com Flutter 3.27
