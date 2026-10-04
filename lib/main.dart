@@ -1579,4 +1579,3 @@ class ResponsibleView extends StatelessWidget {
                 ]));
   }
 }
-fix: usa value em vez de initialValue para compatibilidade com Flutter 3.27
