@@ -1,0 +1,28 @@
+name: Deploy Flutter Web para GitHub Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.4'
+          channel: stable
+      - name: Instalar dependências
+        run: flutter pub get
+      - name: Compilar Web com base href do repositório
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          flutter build web --release --base-href "/${REPO_NAME}/"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+      - uses: actions/deploy-pages@v4

@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function isResponsible() { return signedIn() && me().data.role == 'responsavel'; }
+    function isChild() { return signedIn() && me().data.role == 'crianca'; }
+    function validRejection() {
+      return request.resource.data.rejected == true
+        && request.resource.data.approved == false
+        && request.resource.data.rejectionReason is string
+        && request.resource.data.rejectionReason.size() >= 10;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isResponsible());
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update: if signedIn() && (request.auth.uid == uid || isResponsible());
+      allow delete: if false;
+      match /private/{doc} {
+        allow read, write: if isResponsible() && uid == request.auth.uid;
+      }
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if signedIn() && (resource.data.childUid == request.auth.uid || isResponsible());
+      allow create: if isChild() && request.resource.data.childUid == request.auth.uid
+                    && request.resource.data.approved == false
+                    && request.resource.data.rejected == false;
+      allow update: if isResponsible()
+                    && request.resource.data.childUid == resource.data.childUid
+                    && (request.resource.data.rejected == false || validRejection());
+      allow delete: if isResponsible();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if signedIn() && (resource.data.childUid == request.auth.uid || isResponsible());
+      allow update: if signedIn() && resource.data.childUid == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow create, delete: if isResponsible();
+    }
+
+    match /rewards/{rewardId} {
+      allow read: if signedIn() && (resource.data.childUid == request.auth.uid || isResponsible());
+      allow write: if isResponsible();
+    }
+    match /rankings/{weekId}/entries/{uid} {
+      allow read: if signedIn();
+      allow write: if isResponsible();
+    }
+    match /config/{docId} {
+      allow read: if signedIn();
+      allow write: if isResponsible();
+    }
+  }
+}
