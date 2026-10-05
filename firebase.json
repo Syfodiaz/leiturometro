@@ -1,0 +1,31 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "leiturometro",
+          "appId": "1:705586814578:android:49f2f659c3104dde01aceb",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "leiturometro",
+          "configurations": {
+            "android": "1:705586814578:android:49f2f659c3104dde01aceb",
+            "web": "1:705586814578:web:2f2e158e6f3d29ac01aceb"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "nam5",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  }
+}

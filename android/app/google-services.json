@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "705586814578",
+    "project_id": "leiturometro",
+    "storage_bucket": "leiturometro.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:705586814578:android:49f2f659c3104dde01aceb",
+        "android_client_info": {
+          "package_name": "br.com.leitorkids.leitorkids"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBSbkytUmMBUugpEcgIej_g0ggayuZtmOk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
