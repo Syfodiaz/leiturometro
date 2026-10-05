@@ -4,7 +4,7 @@ MVP Flutter multiplataforma para incentivar crianças de 8 a 14 anos a lerem. O 
 
 ## Estado do MVP
 
-Inclui login/seleção de perfil em modo demonstração, cronômetro, registro manual sem PIN, comprovação por resumo/foto, aprovação do responsável com PIN, meta semanal, horas liberadas e ranking. O PIN de demonstração é **2468** e é solicitado somente ao aprovar uma sessão no painel do responsável. A camada visual está pronta para receber Firebase; o modo demo é offline e permite testar o fluxo sem credenciais.
+Inclui autenticação Firebase por e-mail/senha, cadastro do primeiro responsável com PIN, logout limpo, identificação automática de papel, cadastro de crianças pelo responsável, cronômetro, registro manual, comprovação por resumo/foto, aprovação com PIN validado por Cloud Function, meta semanal, horas liberadas e ranking.
 
 > O cronômetro demo tem os controles Iniciar, Pausar/Retomar e Finalizar; o tempo pausado não é contabilizado. Para produção Android, conecte um foreground service nativo (por exemplo, `flutter_foreground_task`) e configure as permissões de notificação/serviço no AndroidManifest.
 
@@ -51,7 +51,7 @@ A sessão mostra o fator aplicado no cartão de aprovação, como `2x — féria
 1. Crie um projeto no Firebase e ative Authentication (e-mail/senha), Firestore e Storage.
 2. Instale o FlutterFire CLI e rode `flutterfire configure` na raiz do app. Isso substitui `lib/firebase_options.dart`.
 3. Coloque `google-services.json` em `android/app/` quando o FlutterFire solicitar.
-4. Atualize o código para inicializar Firebase antes do `runApp` e altere o repositório demo por chamadas a `FirebaseAuth`, `Firestore` e `FirebaseStorage`.
+4. O app inicializa Firebase antes do fluxo autenticado e usa `FirebaseAuth`, `Firestore` e `FirebaseFunctions`; mantenha os arquivos gerados pelo FlutterFire no repositório.
 5. Publique regras:
 
 ```bash
@@ -75,7 +75,7 @@ O workflow `.github/workflows/deploy.yml` compila a Web a cada push em `main`, d
 
 ## Configuração do adulto
 
-Após ligar o Firebase, crie um usuário responsável, grave `role: responsavel` em `users`, cadastre crianças com `role: crianca` e `responsavelUid`, e salve a política em `config/main`:
+Após configurar o Firebase real, use **Criar conta do responsável** na tela de login. O cadastro grava `role: responsavel` e o hash do PIN em `users/{uid}/private/pin`. Depois, no painel, use **Adicionar criança**; a conta infantil é criada pela Cloud Function `createChildAccount` com `role: crianca` e `responsavelUid`, e salve a política em `config/main`:
 
 ```json
 {"weeklyGoalMinutes": 60, "rewardHours": 2, "timezone": "America/Sao_Paulo"}

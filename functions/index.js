@@ -31,3 +31,27 @@ exports.resetWeeklyRanking = onSchedule({ schedule: '0 0 * * 1', timeZone: 'Amer
   snapshot.docs.forEach((doc) => batch.update(doc.ref, { approvedMinutes: 0, resetAt: admin.firestore.FieldValue.serverTimestamp() }));
   await batch.commit();
 });
+
+
+// Cria uma conta infantil sem desconectar a sessão do responsável.
+exports.createChildAccount = onCall({ region: 'southamerica-east1' }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Login necessário.');
+  const db = admin.firestore();
+  const responsible = await db.doc(`users/${request.auth.uid}`).get();
+  if (!responsible.exists || responsible.data().role !== 'responsavel') {
+    throw new HttpsError('permission-denied', 'Somente o responsável pode adicionar crianças.');
+  }
+  const name = String(request.data?.name || '').trim();
+  const email = String(request.data?.email || '').trim().toLowerCase();
+  const password = String(request.data?.password || '');
+  const avatar = String(request.data?.avatar || '📚');
+  if (!name || !email || password.length < 6) throw new HttpsError('invalid-argument', 'Nome, e-mail e senha temporária são obrigatórios.');
+  try {
+    const child = await admin.auth().createUser({ displayName: name, email, password });
+    await db.doc(`users/${child.uid}`).set({ name, email, avatar, role: 'crianca', responsavelUid: request.auth.uid, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    return { uid: child.uid };
+  } catch (error) {
+    if (error.code === 'auth/email-already-exists') throw new HttpsError('already-exists', 'Este e-mail já está cadastrado.');
+    throw new HttpsError('internal', 'Não foi possível criar a conta infantil.');
+  }
+});
