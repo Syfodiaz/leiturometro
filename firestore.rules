@@ -18,7 +18,18 @@ service cloud.firestore {
       allow update: if signedIn() && (request.auth.uid == uid || isResponsible());
       allow delete: if false;
       match /private/{doc} {
-        allow read, write: if isResponsible() && uid == request.auth.uid;
+        allow read: if isResponsible() && uid == request.auth.uid;
+      // Permite o primeiro PIN no mesmo batch que cria users/{uid}; não depende de isResponsible(),
+      // pois o documento principal ainda não existia antes da operação atômica.
+      allow create: if signedIn() && uid == request.auth.uid
+                    && doc == 'pin'
+                    && request.resource.data.keys().hasOnly(['pinHash'])
+                    && request.resource.data.pinHash is string
+                    && request.resource.data.pinHash.size() == 64;
+      allow update: if isResponsible() && uid == request.auth.uid
+                    && request.resource.data.keys().hasOnly(['pinHash'])
+                    && request.resource.data.pinHash is string
+                    && request.resource.data.pinHash.size() == 64;
       }
     }
 

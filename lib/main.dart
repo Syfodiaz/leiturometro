@@ -234,36 +234,58 @@ class DemoStore extends ChangeNotifier {
     loading = true;
     authError = null;
     notifyListeners();
+    UserCredential? credential;
     try {
-      final credential =
-          await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
-      await credential.user!.updateDisplayName(name.trim());
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(credential.user!.uid)
-          .set({
+      final uid = credential.user!.uid;
+      final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+      final pinRef = userRef.collection('private').doc('pin');
+      final hash = sha256.convert(pin.codeUnits).toString();
+      final batch = FirebaseFirestore.instance.batch();
+      batch.set(userRef, {
         'name': name.trim(),
-        'email': email.trim(),
+        'email': email.trim().toLowerCase(),
         'role': 'responsavel',
         'createdAt': FieldValue.serverTimestamp(),
       });
-      final hash = sha256.convert(pin.codeUnits).toString();
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(credential.user!.uid)
-          .collection('private')
-          .doc('pin')
-          .set({'pinHash': hash});
+      batch.set(pinRef, {'pinHash': hash});
+      await batch.commit();
+      await credential.user!.updateDisplayName(name.trim());
+      debugPrint('[LeitorKids] Cadastro concluído: Auth e users/$uid criados.');
       return true;
-    } on FirebaseAuthException catch (e) {
+    } on FirebaseAuthException catch (e, stack) {
+      debugPrint(
+          '[LeitorKids] Falha no Authentication (${e.code}): ${e.message}\n$stack');
       authError = e.code == 'email-already-in-use'
           ? 'Este e-mail já está cadastrado.'
           : e.code == 'weak-password'
               ? 'Use uma senha mais forte.'
-              : 'Não foi possível criar a conta.';
+              : e.message ?? 'Não foi possível criar a conta.';
+      return false;
+    } on FirebaseException catch (e, stack) {
+      debugPrint(
+          '[LeitorKids] Falha ao criar users/${credential?.user?.uid} (${e.code}): ${e.message}\n$stack');
+      authError =
+          'A conta foi criada no Authentication, mas o perfil não pôde ser salvo no Firestore: ${e.message ?? e.code}';
+      if (credential?.user != null) {
+        try {
+          await credential!.user!.delete();
+          authError =
+              'Cadastro não concluído: o perfil não pôde ser salvo no Firestore e a conta foi desfeita. ${e.message ?? e.code}';
+        } catch (rollbackError, rollbackStack) {
+          debugPrint(
+              '[LeitorKids] Falha no rollback do Auth: $rollbackError\n$rollbackStack');
+          authError =
+              'Não foi possível salvar o perfil. A conta Auth permanece para você tentar novamente: ${e.message ?? e.code}';
+        }
+      }
+      return false;
+    } catch (e, stack) {
+      debugPrint('[LeitorKids] Falha inesperada no cadastro: $e\n$stack');
+      authError = 'Falha inesperada no cadastro: $e';
       return false;
     } finally {
       loading = false;
@@ -578,48 +600,98 @@ class _LoginViewState extends State<LoginView> {
 
   Future<void> _register() async {
     final name = TextEditingController();
+    final registerEmail = TextEditingController();
+    final registerPassword = TextEditingController();
+    final confirmPassword = TextEditingController();
     final pin = TextEditingController();
-    final newPassword = TextEditingController();
-    await showDialog(
+    final confirmPin = TextEditingController();
+    try {
+      await showDialog(
         context: context,
         builder: (_) => AlertDialog(
-              title: const Text('Criar conta do responsável'),
-              content: SingleChildScrollView(
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+          title: const Text('Criar conta do responsável'),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: 380,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
                 TextField(
                     controller: name,
-                    decoration: const InputDecoration(labelText: 'Nome')),
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                        labelText: 'Nome completo',
+                        border: OutlineInputBorder())),
+                const SizedBox(height: 10),
+                TextField(
+                    controller: registerEmail,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                        labelText: 'E-mail', border: OutlineInputBorder())),
+                const SizedBox(height: 10),
+                TextField(
+                    controller: registerPassword,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                        labelText: 'Senha (mín. 6 caracteres)',
+                        border: OutlineInputBorder())),
+                const SizedBox(height: 10),
+                TextField(
+                    controller: confirmPassword,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                        labelText: 'Confirmar senha',
+                        border: OutlineInputBorder())),
+                const SizedBox(height: 10),
                 TextField(
                     controller: pin,
                     keyboardType: TextInputType.number,
                     obscureText: true,
                     decoration: const InputDecoration(
-                        labelText: 'PIN numérico (4 a 6 dígitos)')),
+                        labelText: 'PIN numérico (4–6 dígitos)',
+                        border: OutlineInputBorder())),
+                const SizedBox(height: 10),
                 TextField(
-                    controller: newPassword,
+                    controller: confirmPin,
+                    keyboardType: TextInputType.number,
                     obscureText: true,
-                    decoration:
-                        const InputDecoration(labelText: 'Senha da conta')),
-                const SizedBox(height: 8),
-                const Text('O e-mail usado será o preenchido na tela de login.')
-              ])),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancelar')),
-                FilledButton(
-                    onPressed: () async {
-                      if (name.text.trim().isEmpty ||
-                          !RegExp(r'^\d{4,6}$').hasMatch(pin.text) ||
-                          newPassword.text.length < 6) return;
-                      Navigator.pop(context);
-                      final ok = await widget.store.registerResponsible(
-                          name.text, email.text, newPassword.text, pin.text);
-                      if (ok && mounted) password.text = newPassword.text;
-                    },
-                    child: const Text('Criar'))
-              ],
-            ));
+                    decoration: const InputDecoration(
+                        labelText: 'Confirmar PIN',
+                        border: OutlineInputBorder())),
+              ]),
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar')),
+            FilledButton(
+                onPressed: () async {
+                  if (name.text.trim().isEmpty ||
+                      !registerEmail.text.contains('@') ||
+                      registerPassword.text.length < 6 ||
+                      registerPassword.text != confirmPassword.text ||
+                      !RegExp(r'^\d{4,6}$').hasMatch(pin.text) ||
+                      pin.text != confirmPin.text) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Confira nome, e-mail, senhas e PIN.')));
+                    return;
+                  }
+                  Navigator.pop(context);
+                  final ok = await widget.store.registerResponsible(name.text,
+                      registerEmail.text, registerPassword.text, pin.text);
+                  if (mounted && !ok) setState(() {});
+                },
+                child: const Text('Criar conta')),
+          ],
+        ),
+      );
+    } finally {
+      name.dispose();
+      registerEmail.dispose();
+      registerPassword.dispose();
+      confirmPassword.dispose();
+      pin.dispose();
+      confirmPin.dispose();
+    }
   }
 
   @override
